@@ -9,6 +9,9 @@ Public Class Form1
     Private integerList As New List(Of Double)()
     Private stftMatrix As Complex(,)
     Private stftMag As Double(,)
+    Dim fs As Integer
+    Dim frameSize As Integer
+    Dim hopSize As Integer
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
 
         Dim openFileDialog1 As New OpenFileDialog()
@@ -48,9 +51,9 @@ Public Class Form1
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         ' Compute and plot the STFT
-        Dim fs As Integer = samplingRate.Text
-        Dim frameSize As Integer = frame.Text
-        Dim hopSize As Integer = hopLength.Text
+        fs = samplingRate.Text
+        frameSize = frame.Text
+        hopSize = hopLength.Text
 
         Dim signal As Double() = integerList.ToArray()
         stftMatrix = ComputeSTFT(signal, fs, frameSize, hopSize)
@@ -67,7 +70,7 @@ Public Class Form1
         Array.Copy(signal, paddedSignal, signal.Length)
 
         ' Initialize the STFT matrix
-        Dim stftMatrix(frameSize - 1, numFrames - 1) As Complex
+        Dim stftMatrix(numFrames - 1, frameSize - 1) As Complex
 
         ' Compute STFT
         For i As Integer = 0 To numFrames - 1
@@ -79,7 +82,7 @@ Public Class Form1
 
             Dim frameDFT As Complex() = DFT(frame)
             For k As Integer = 0 To frameSize - 1
-                stftMatrix(k, i) = frameDFT(k)
+                stftMatrix(i, k) = frameDFT(k)
             Next
         Next
 
@@ -137,13 +140,14 @@ Public Class Form1
         Dim heatMapSeries As New OxyPlot.Series.HeatMapSeries()
         Dim rows As Integer = stftMatrix.GetLength(0)
         Dim cols As Integer = stftMatrix.GetLength(1)
-        Dim magnitudes(rows - 1, cols - 1) As Double
+        Dim magnitudes(rows - 1, cols / 2) As Double
+        MessageBox.Show(rows, cols)
 
         Dim minValue As Double = Double.MaxValue
         Dim maxValue As Double = Double.MinValue
 
         For i As Integer = 0 To rows - 1
-            For j As Integer = 0 To cols - 1
+            For j As Integer = 0 To cols / 2
                 magnitudes(i, j) = stftMatrix(i, j).Magnitude
                 If magnitudes(i, j) < minValue Then
                     minValue = magnitudes(i, j)
@@ -155,20 +159,20 @@ Public Class Form1
         Next
 
         ' Scale the magnitudes to the range 0-255
-        Dim scaledMagnitudes(rows - 1, cols - 1) As Double
+        Dim scaledMagnitudes(rows - 1, cols / 2) As Double
 
         For i As Integer = 0 To rows - 1
-            For j As Integer = 0 To cols - 1
+            For j As Integer = 0 To cols / 2
                 scaledMagnitudes(i, j) = ((magnitudes(i, j) - minValue) / (maxValue - minValue)) * 255
             Next
         Next
 
         heatMapSeries.X0 = 0
-        heatMapSeries.X1 = cols * 0.005
+        heatMapSeries.X1 = rows * hopSize / fs
         heatMapSeries.Y0 = 0
-        heatMapSeries.Y1 = rows * 8000 / 320
+        heatMapSeries.Y1 = cols * (fs / 2) / frameSize
         heatMapSeries.Interpolate = True
-        heatMapSeries.Data = scaledMagnitudes
+        heatMapSeries.Data = magnitudes
 
         model.Series.Add(heatMapSeries)
 
